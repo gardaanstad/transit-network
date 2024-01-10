@@ -1,7 +1,7 @@
-import csv
+from ctypes import Array
+
 
 class Station:
-    name = ""
     def __init__(self, name):
         self.name = name
     
@@ -12,8 +12,9 @@ class Station:
         return self.name
 
 class Line:
-    stations = []
-    number = 0
+    def __init__(self):
+        self.stations = []
+        self.number = 0
             
     def add_station(self, station):
         self.stations.append(station)
@@ -30,38 +31,58 @@ class Line:
     def __str__(self):
         result = ""
         for st in self.stations:
-            result += str(st)
+            result += st.name + " "
         return result
 
 class Network:
-    lines = []
-    stations = []
+    def __init__(self):
+        self.lines = []
+        self.stations = [] # array used to prevent duplicate station objects, where two or more lines share a station with the same name
     
     def add_line(self, line):
         self.lines.append(line)
     
+    # reads file, line by line. adds station objects to new line objects, and line objects to lines array
     def generate_network_from_file(self, file_to_read):
-        with open(file_to_read) as file_obj:
-            reader = csv.reader(file_obj)
-            for row in reader:
-                current_line = Line()
+        
+        def check_if_station_exists(station_name):
+            for station in self.stations:
+                    if station_name == station.get_name():
+                        return station
+            return False
+        
+        network_file = open(file_to_read, 'r') # file_to_read: String = "file.txt"
+        
+        for row in network_file:
+            row_separated = row.split(",")
+            
+            new_line = Line()
+            
+            count = 0
+            for item in row_separated:
+                item = item.replace('\n', '')
                 
-                count = 0
-                for item in row:
-                    print("count: " + str(count) + " - item: " + item)
-                    if count == 0:
-                        current_line.set_number(item)
-                    else:
-                        for station in self.stations:
-                            if station.get_name() == item:
-                                current_line.add_station(station)
-                                continue
-                        
-                        new_station = Station(item)
-                        current_line.add_station(new_station)
-                        self.stations.append(new_station)
-                    
-                    count += 1
+                if count == 0:
+                    new_line.set_number(item)
+                    count = 1
+                    continue
+                
+                # checked_st = False means station doesn't exist yet, checked_st = Station obj means station with that name already exists
+                checked_st = check_if_station_exists(item) 
+                
+                if not checked_st:
+                    new_station = Station(item)
+                    new_line.add_station(new_station)
+                    self.stations.append(new_station)
+                    continue
+                
+                # check_if_station_exists() returned Station object
+                new_line.add_station(checked_st)
+            self.lines.append(new_line)
+    
+    def print_stations(self):
+        for st in self.stations:
+            print(st.get_name())
     
     def __str__(self):
         result = ""
@@ -74,8 +95,9 @@ class Network:
 
 def main():
     net = Network()
-    net.generate_network_from_file("stations.csv")
+    net.generate_network_from_file("stations.txt")
     print(net)
+    net.print_stations()
 
 if __name__ == "__main__":
     main()
