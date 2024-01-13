@@ -99,10 +99,13 @@ class Network:
         path = []
         if goal not in came_from:
             return []
+        
+        current_line = None
         while current != start:
-            path.append(current)
+            path.append((current, current_line))
+            current_line = [line for line in current.lines if came_from[current] in line.get_stations()][0]
             current = came_from[current]
-        path.append(start)
+        path.append((start, current_line))
         path.reverse()
         return path
     
@@ -137,7 +140,7 @@ class Network:
     
     def route_interface(self):
         algorithm = self.breadth_first_search # default algorithm
-        choice = int(input("Please choose an algorithm for your routing today.\n1: Breadth-first search\n> "))
+        choice = int(input("Please choose a routing algorithm.\n1: Breadth-first search\n> "))
         
         match choice:
             case 1:
@@ -146,13 +149,31 @@ class Network:
                 raise Exception("Invalid choice")
         
         print()
-        start = input("What is your starting station?\n> ")
+        start = input("What station are you starting at?\n> ")
         goal = input("What station are you going to?\n> ")
         path = algorithm(start, goal)
         
         print()
-        print("Path between " + start + " and " + goal + ":")
-        print(str([x.name for x in path]))
+        print("Route from " + start + " to " + goal + ":")
+        
+        prev_line = None # to check if transfer had been made, with "if line != prev_line"
+        count = 0 # to check if for loop is at start or goal, or not
+        for station, line in path:
+            count += 1
+            
+            if count == len(path):
+                    print(station.name)
+            
+            if line:
+                if count == 1:
+                    print("  Take Line " + str(line.get_number()) + " from " + station.name + " to", end=' ')
+                    
+                elif prev_line and line != prev_line and count > 0:
+                    print(station.name)
+                    print("  Transfer to Line " + str(line.get_number()) + " and take it to", end=' ')
+                    
+                prev_line = line
+        print()
     
     def __str__(self):
         result = ""
