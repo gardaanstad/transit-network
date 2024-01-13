@@ -1,21 +1,17 @@
 from ctypes import Array
-
+from queue import * # type: ignore
 
 class Station:
     def __init__(self, name):
         self.name = name
         self.lines = []
-        self.next = []
-        self.prev = []
+        self.neighbors = []
     
     def add_line(self, line_obj):
         self.lines.append(line_obj)
     
-    def add_next(self, st):
-        self.next.append(st)
-        
-    def add_prev(self, st):
-        self.prev.append(st)
+    def add_neighbor(self, st):
+        self.neighbors.append(st)
     
     def __str__(self):
         return self.name
@@ -72,91 +68,91 @@ class Network:
             for item in row_separated:
                 item = item.replace('\n', '')
                 
-                if count == 0:
+                if count == 0: # first item of each line is number of transit line. for example "1,Frognerseteren,Voksenkollen,etc."
                     new_line.set_number(item)
                     count = 1
                     continue
                 
-                # checked_st = False: station doesn't exist yet - checked_st = Station obj: station with that name already exists
-                checked_st = self.get_station_obj(item)
-                
-                if not checked_st:
+                new_st = self.get_station_obj(item) # False: station doesn't exist yet | Station obj: station with that name already exists
+                if not new_st: # get_station_obj(item: String) returned False
                     new_st = Station(item)
+                    new_st.add_line(new_line)
                     new_line.add_station(new_st)
                     self.stations.append(new_st)
-                    
+                else: # get_station_obj(item: String) returned Station object
+                    new_line.add_station(new_st)
                     new_st.add_line(new_line)
-                    if not prev_st == None:
-                        new_st.add_prev(prev_st)
-                        prev_st.add_next(new_st)
-                    prev_st = new_st # prev_st, new_st, new_st (next loop)
-                    
-                    continue
                 
-                # check_if_station_exists() returned Station object
-                new_st = checked_st
-                
-                new_line.add_station(new_st)
-                new_st.add_line(new_line)
-                
-                if not prev_st == None:
-                    if new_st not in prev_st.next:
-                        prev_st.add_next(new_st)
-                    if prev_st not in new_st.prev:
-                        new_st.add_prev(prev_st)
-                        
+                if prev_st != None:
+                    if new_st not in prev_st.neighbors:
+                        prev_st.add_neighbor(new_st)
+                    if prev_st not in new_st.neighbors:
+                        new_st.add_neighbor(prev_st)
                 prev_st = new_st
-                
             self.lines.append(new_line)
     
-    def print_stations(self):
-        for st in self.stations:
-            print(st.name)
+    
+    
+    # reconstructs the path taken to get from start: Station to goal: Station, given came_from: Dict. returns list of Station objects.
+    def reconstruct_path(self, came_from, start, goal):
+        current = goal
+        path = []
+        if goal not in came_from:
+            return []
+        while current != start:
+            path.append(current)
+            current = came_from[current]
+        path.append(start)
+        path.reverse()
+        return path
+    
+    # implementation of a Breadth-first search algorithm
+    def breadth_first_search(self, start_name, goal_name):
+        start = self.get_station_obj(start_name)
+        goal = self.get_station_obj(goal_name)
+        if not start or not goal: raise Exception("Invalid station")
         
-    # returns [starting station, line to, station, line to, goal station] or [starting station, line to, goal station]
-    # example: route_between_stations("Helsfyr", "Økern") returns ["Helsfyr", 1,2,3,4, "Tøyen", 5, "Økern"]
-    def route_between_stations(self, start_st_name, goal_st_name):
-        # get station objects
-        start_st = self.get_station_obj(start_st_name)
-        goal_st = self.get_station_obj(goal_st_name)
+        frontier = Queue()
+        frontier.put(start)
+        came_from = {} # [Station, Optional[Station]]
+        came_from[start] = None
         
-        if not start_st or not goal_st:
-            raise Exception("Invalid station")
-        
-        # get which lines both stations are on
-        shared_lines = [i for i in start_st.lines if i in goal_st.lines] # list comprehension to find shared elements in start_st.lines and end_st.lines
-        
-        route = []
-        
-        # case 1: stations are on same line
-        if len(shared_lines) >= 1:
-            route.extend([start_st.name, [x.get_number() for x in shared_lines], goal_st.name])
-            ## route.extend([start_st.name, shared_lines, goal_st.name])
-            return route
-        
-        # unfinished! case 2: stations are on different lines
-        def rec_find_path(current, route_so_far):
-            if current == goal_st:
-                return route_so_far
+        while not frontier.empty():
+            current = frontier.get()
             
-            route_so_far.append(current)
-            for index, st in enumerate(current.next):
-                rec_find_path(st.next[index], route_so_far)
-        rec_find_path(start_st, [])
+            if current == goal:
+                # print("Visiting " + current.name + "\n  Found goal!")
+                break
+                
+            # print("Visiting " + current.name + "\n  Current line(s): " + str([x.number for x in current.lines]) + "\n  Reachable stations: " + str([x.name for x in current.neighbors]))
+            for next in current.neighbors:
+                if next not in came_from:
+                    frontier.put(next)
+                    came_from[next] = current
         
-        return route
+        return self.reconstruct_path(came_from, start, goal)    
     
-    # helper function for case 2 (transfer(s) needed) in router
-    def station_nexts(self, station):
-        # print("Current: " + str(station.name) + " | Possible nexts: " + str([x.name for x in station.next])) - debugging
-        for st in station.next:
-            self.station_nexts(st)
+    def all_stations_on_network(self):
+        return [x.name for x in self.stations]
     
-    # helper function for case 2 (transfer(s) needed) in router
-    def station_prevs(self, station):
-        # print("Current: " + str(station.name) + " | Possible prevs: " + str([x.name for x in station.prev])) - debugging
-        for st in station.prev:
-            self.station_prevs(st)
+    def route_interface(self):
+        algorithm = self.breadth_first_search # default algorithm
+        choice = int(input("Please choose an algorithm for your routing today.\n1: Breadth-first search\n> "))
+        
+        match choice:
+            case 1:
+                algorithm = self.breadth_first_search
+            case _:
+                raise Exception("Invalid choice")
+        
+        print()
+        start = input("What is your starting station?\n> ")
+        goal = input("What station are you going to?\n> ")
+        path = algorithm(start, goal)
+        
+        print()
+        print("Path between " + start + " and " + goal + ":")
+        print(str([x.name for x in path]))
     
     def __str__(self):
         result = ""
@@ -171,11 +167,7 @@ def main():
     net = Network()
     net.generate_network_from_file("stations.txt")
     
-    # route without transfer:
-    print(net.route_between_stations("Helsfyr", "Ensjø"))
-    
-    # route with transfer (not functioning yet):
-    ## print(net.route_between_stations("Vinderen", "Blindern"))
+    net.route_interface()
 
 if __name__ == "__main__":
     main()
