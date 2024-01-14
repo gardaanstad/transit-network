@@ -1,6 +1,4 @@
 from ast import Dict
-from ctypes import Array
-from http.client import NETWORK_AUTHENTICATION_REQUIRED
 from queue import * # type: ignore
 
 class Station:
@@ -17,29 +15,6 @@ class Station:
     
     def __str__(self):
         return self.name
-
-class Line:
-    def __init__(self):
-        self.stations = []
-        self.number = 0
-            
-    def add_station(self, station):
-        self.stations.append(station)
-    
-    def get_stations(self):
-        return self.stations
-    
-    def set_number(self, number):
-        self.number = number
-
-    def get_number(self):
-        return self.number
-    
-    def __str__(self):
-        result = ""
-        for st in self.stations:
-            result += st.name + " "
-        return result
 
 def get_all_stations(network):
     if not network:
