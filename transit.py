@@ -1,4 +1,3 @@
-from ast import Dict
 from queue import * # type: ignore
 
 class Station:
@@ -36,10 +35,7 @@ def get_station_obj(network, station_name):
     
     station = [x for x in all_stations if station_name == x.name]
     
-    if not station:
-        return False
-    
-    return station[0]
+    return False if not station else station[0]
 
 # reads file, line by line. adds station objects to network dictionary (key is line number, value is array of stations)
 def generate_network_from_file(file_to_read):
@@ -76,8 +72,7 @@ def generate_network_from_file(file_to_read):
                         prev_st.add_neighbor(new_st)
                     if prev_st not in new_st.neighbors:
                         new_st.add_neighbor(prev_st)
-                prev_st = new_st
-                
+                prev_st = new_st   
     return network
 
 # reconstructs the path taken to get from start: Station to goal: Station, given came_from: Dict. returns list of Station objects.
@@ -111,10 +106,8 @@ def breadth_first_search(network, start_name, goal_name):
         current = frontier.get()
         
         if current == goal:
-            # print("Visiting " + current.name + "\n  Found goal!")
             break
-            
-        # print("Visiting " + current.name + "\n  Current line(s): " + str([x.number for x in current.lines]) + "\n  Reachable stations: " + str([x.name for x in current.neighbors]))
+        
         for next in current.neighbors:
             if next not in came_from:
                 frontier.put(next)
@@ -168,8 +161,6 @@ def get_neighbors(network, st_name):
 
 def main():
     network = generate_network_from_file("stations.txt")
-    # print_network(network)
-    # print(get_neighbors(network, " "))
     route_interface(network)
 
 if __name__ == "__main__":
